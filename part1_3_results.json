@@ -1,0 +1,457 @@
+{
+  "case_study": "Banking customer opportunity & credit risk",
+  "models": [
+    "XGBoost",
+    "MLP (sklearn MLPClassifier)"
+  ],
+  "evaluation_metrics_justification": {
+    "primary": [
+      "pr_auc",
+      "recall_positive",
+      "f1_positive"
+    ],
+    "secondary": [
+      "roc_auc",
+      "precision_positive",
+      "balanced_accuracy"
+    ],
+    "why": "Both datasets are imbalanced binary classification problems in banking. Accuracy alone is misleading (majority class dominates). PR-AUC emphasises ranking quality on the rare positive class (subscribers / defaulters). Recall of the positive class aligns with business cost asymmetry: missing a subscriber wastes campaign potential; missing a defaulter creates credit loss. F1 balances precision vs recall for operational thresholding. ROC-AUC remains a secondary ranking metric."
+  },
+  "bank_marketing": {
+    "dataset": "Bank Marketing (term deposit)",
+    "n_rows": 45211,
+    "n_features_raw": 16,
+    "positive_rate": 0.11698480458295547,
+    "scale_pos_weight": 7.548118737001324,
+    "categorical_features": [
+      "job",
+      "marital",
+      "education",
+      "default",
+      "housing",
+      "loan",
+      "contact",
+      "month",
+      "poutcome"
+    ],
+    "numeric_features": [
+      "age",
+      "balance",
+      "day",
+      "duration",
+      "campaign",
+      "pdays",
+      "previous"
+    ],
+    "xgboost": {
+      "roc_auc": 0.9329244460016596,
+      "pr_auc": 0.632849507265673,
+      "f1_positive": 0.5889453621346887,
+      "recall_positive": 0.8761814744801513,
+      "precision_positive": 0.44354066985645935,
+      "balanced_accuracy": 0.8652666921555421,
+      "accuracy": 0.8569058940617051,
+      "confusion_matrix": [
+        [
+          6822,
+          1163
+        ],
+        [
+          131,
+          927
+        ]
+      ],
+      "classification_report": {
+        "0": {
+          "precision": 0.9811592118509995,
+          "recall": 0.854351909830933,
+          "f1-score": 0.9133752845093052,
+          "support": 7985.0
+        },
+        "1": {
+          "precision": 0.44354066985645935,
+          "recall": 0.8761814744801513,
+          "f1-score": 0.5889453621346887,
+          "support": 1058.0
+        },
+        "accuracy": 0.8569058940617051,
+        "macro avg": {
+          "precision": 0.7123499408537295,
+          "recall": 0.8652666921555421,
+          "f1-score": 0.751160323321997,
+          "support": 9043.0
+        },
+        "weighted avg": {
+          "precision": 0.9182596854294334,
+          "recall": 0.8569058940617051,
+          "f1-score": 0.8754180957586313,
+          "support": 9043.0
+        }
+      },
+      "top_features": [
+        {
+          "feature": "poutcome_success",
+          "importance": 0.1595030575990677
+        },
+        {
+          "feature": "contact_unknown",
+          "importance": 0.11222684383392334
+        },
+        {
+          "feature": "duration",
+          "importance": 0.06182407587766647
+        },
+        {
+          "feature": "housing_no",
+          "importance": 0.04960569739341736
+        },
+        {
+          "feature": "month_mar",
+          "importance": 0.049179233610630035
+        },
+        {
+          "feature": "month_oct",
+          "importance": 0.03691302612423897
+        },
+        {
+          "feature": "housing_yes",
+          "importance": 0.03453819081187248
+        },
+        {
+          "feature": "month_jun",
+          "importance": 0.0315481498837471
+        },
+        {
+          "feature": "month_jul",
+          "importance": 0.030247028917074203
+        },
+        {
+          "feature": "month_sep",
+          "importance": 0.02466604858636856
+        },
+        {
+          "feature": "poutcome_unknown",
+          "importance": 0.02310665138065815
+        },
+        {
+          "feature": "loan_no",
+          "importance": 0.022981831803917885
+        },
+        {
+          "feature": "month_aug",
+          "importance": 0.022318923845887184
+        },
+        {
+          "feature": "month_feb",
+          "importance": 0.020692788064479828
+        },
+        {
+          "feature": "month_apr",
+          "importance": 0.020095394924283028
+        }
+      ],
+      "best_f1_threshold": 0.7000000000000001,
+      "f1_at_best_threshold": 0.6302886516409648,
+      "recall_at_best_threshold": 0.7533081285444234,
+      "precision_at_best_threshold": 0.5418082936777702
+    },
+    "mlp": {
+      "roc_auc": 0.9190895499950876,
+      "pr_auc": 0.5876378413700443,
+      "f1_positive": 0.5450666666666667,
+      "recall_positive": 0.4829867674858223,
+      "precision_positive": 0.6254589963280294,
+      "balanced_accuracy": 0.722332457005278,
+      "accuracy": 0.9056728961627778,
+      "confusion_matrix": [
+        [
+          7679,
+          306
+        ],
+        [
+          547,
+          511
+        ]
+      ],
+      "classification_report": {
+        "0": {
+          "precision": 0.9335035254072453,
+          "recall": 0.9616781465247338,
+          "f1-score": 0.947381407686139,
+          "support": 7985.0
+        },
+        "1": {
+          "precision": 0.6254589963280294,
+          "recall": 0.4829867674858223,
+          "f1-score": 0.5450666666666667,
+          "support": 1058.0
+        },
+        "accuracy": 0.9056728961627778,
+        "macro avg": {
+          "precision": 0.7794812608676374,
+          "recall": 0.722332457005278,
+          "f1-score": 0.7462240371764028,
+          "support": 9043.0
+        },
+        "weighted avg": {
+          "precision": 0.8974633715019252,
+          "recall": 0.9056728961627778,
+          "f1-score": 0.9003119621483084,
+          "support": 9043.0
+        }
+      },
+      "n_iter": 14,
+      "best_f1_threshold": 0.325,
+      "f1_at_best_threshold": 0.6091328026811897,
+      "recall_at_best_threshold": 0.6871455576559546,
+      "precision_at_best_threshold": 0.547027840481565
+    }
+  },
+  "bank_marketing_no_duration": {
+    "xgboost_roc_auc": 0.8043023722409575,
+    "xgboost_pr_auc": 0.470607350151271,
+    "xgboost_f1_positive": 0.4517426273458445,
+    "xgboost_top_features": [
+      {
+        "feature": "poutcome_success",
+        "importance": 0.3003970682621002
+      },
+      {
+        "feature": "contact_unknown",
+        "importance": 0.10340014845132828
+      },
+      {
+        "feature": "housing_yes",
+        "importance": 0.052964456379413605
+      },
+      {
+        "feature": "month_mar",
+        "importance": 0.03976571932435036
+      },
+      {
+        "feature": "month_oct",
+        "importance": 0.03173951059579849
+      },
+      {
+        "feature": "housing_no",
+        "importance": 0.029176658019423485
+      },
+      {
+        "feature": "month_aug",
+        "importance": 0.025319954380393028
+      },
+      {
+        "feature": "month_apr",
+        "importance": 0.023671438917517662
+      },
+      {
+        "feature": "month_jun",
+        "importance": 0.023360108956694603
+      },
+      {
+        "feature": "month_sep",
+        "importance": 0.02274264767765999
+      }
+    ],
+    "mlp_roc_auc": 0.7919563264296359,
+    "mlp_pr_auc": 0.4360622504388414,
+    "mlp_f1_positive": 0.33700137551581844
+  },
+  "credit_default": {
+    "dataset": "Credit Card Default",
+    "n_rows": 30000,
+    "n_features_raw": 23,
+    "positive_rate": 0.2212,
+    "scale_pos_weight": 3.5207956600361663,
+    "categorical_features": [
+      "SEX",
+      "EDUCATION",
+      "MARRIAGE"
+    ],
+    "numeric_features": [
+      "LIMIT_BAL",
+      "AGE",
+      "PAY_0",
+      "PAY_2",
+      "PAY_3",
+      "PAY_4",
+      "PAY_5",
+      "PAY_6",
+      "BILL_AMT1",
+      "BILL_AMT2",
+      "BILL_AMT3",
+      "BILL_AMT4",
+      "BILL_AMT5",
+      "BILL_AMT6",
+      "PAY_AMT1",
+      "PAY_AMT2",
+      "PAY_AMT3",
+      "PAY_AMT4",
+      "PAY_AMT5",
+      "PAY_AMT6"
+    ],
+    "xgboost": {
+      "roc_auc": 0.7740366946290406,
+      "pr_auc": 0.552363227394473,
+      "f1_positive": 0.5337748344370861,
+      "recall_positive": 0.6073850791258478,
+      "precision_positive": 0.47607796810395747,
+      "balanced_accuracy": 0.708785627514989,
+      "accuracy": 0.7653333333333333,
+      "confusion_matrix": [
+        [
+          3786,
+          887
+        ],
+        [
+          521,
+          806
+        ]
+      ],
+      "classification_report": {
+        "0": {
+          "precision": 0.8790341304852566,
+          "recall": 0.8101861759041301,
+          "f1-score": 0.8432071269487751,
+          "support": 4673.0
+        },
+        "1": {
+          "precision": 0.47607796810395747,
+          "recall": 0.6073850791258478,
+          "f1-score": 0.5337748344370861,
+          "support": 1327.0
+        },
+        "accuracy": 0.7653333333333333,
+        "macro avg": {
+          "precision": 0.677556049294607,
+          "recall": 0.708785627514989,
+          "f1-score": 0.6884909806929306,
+          "support": 6000.0
+        },
+        "weighted avg": {
+          "precision": 0.7899136592385926,
+          "recall": 0.7653333333333333,
+          "f1-score": 0.7747710182549399,
+          "support": 6000.0
+        }
+      },
+      "top_features": [
+        {
+          "feature": "PAY_0",
+          "importance": 0.3956208825111389
+        },
+        {
+          "feature": "PAY_2",
+          "importance": 0.07276090979576111
+        },
+        {
+          "feature": "PAY_3",
+          "importance": 0.048539724200963974
+        },
+        {
+          "feature": "PAY_4",
+          "importance": 0.045496873557567596
+        },
+        {
+          "feature": "PAY_5",
+          "importance": 0.027250703424215317
+        },
+        {
+          "feature": "PAY_6",
+          "importance": 0.027243291959166527
+        },
+        {
+          "feature": "PAY_AMT2",
+          "importance": 0.02477620542049408
+        },
+        {
+          "feature": "LIMIT_BAL",
+          "importance": 0.02169174887239933
+        },
+        {
+          "feature": "BILL_AMT1",
+          "importance": 0.019760625436902046
+        },
+        {
+          "feature": "PAY_AMT3",
+          "importance": 0.018101351335644722
+        },
+        {
+          "feature": "BILL_AMT2",
+          "importance": 0.016989652067422867
+        },
+        {
+          "feature": "PAY_AMT1",
+          "importance": 0.016589930281043053
+        },
+        {
+          "feature": "EDUCATION_5",
+          "importance": 0.015690945088863373
+        },
+        {
+          "feature": "SEX_2",
+          "importance": 0.015386026352643967
+        },
+        {
+          "feature": "PAY_AMT4",
+          "importance": 0.015189535915851593
+        }
+      ],
+      "best_f1_threshold": 0.55,
+      "f1_at_best_threshold": 0.5428468985299391,
+      "recall_at_best_threshold": 0.5704596834966089,
+      "precision_at_best_threshold": 0.5177838577291382
+    },
+    "mlp": {
+      "roc_auc": 0.7646200148329216,
+      "pr_auc": 0.5401739049976125,
+      "f1_positive": 0.473583093179635,
+      "recall_positive": 0.3715146948003014,
+      "precision_positive": 0.6529801324503312,
+      "balanced_accuracy": 0.6577239641345826,
+      "accuracy": 0.8173333333333334,
+      "confusion_matrix": [
+        [
+          4411,
+          262
+        ],
+        [
+          834,
+          493
+        ]
+      ],
+      "classification_report": {
+        "0": {
+          "precision": 0.8409914204003813,
+          "recall": 0.9439332334688637,
+          "f1-score": 0.8894938495664448,
+          "support": 4673.0
+        },
+        "1": {
+          "precision": 0.6529801324503312,
+          "recall": 0.3715146948003014,
+          "f1-score": 0.473583093179635,
+          "support": 1327.0
+        },
+        "accuracy": 0.8173333333333334,
+        "macro avg": {
+          "precision": 0.7469857764253562,
+          "recall": 0.6577239641345826,
+          "f1-score": 0.6815384713730399,
+          "support": 6000.0
+        },
+        "weighted avg": {
+          "precision": 0.7994095905487619,
+          "recall": 0.8173333333333334,
+          "f1-score": 0.797508253945562,
+          "support": 6000.0
+        }
+      },
+      "n_iter": 16,
+      "best_f1_threshold": 0.325,
+      "f1_at_best_threshold": 0.5234643265929034,
+      "recall_at_best_threshold": 0.5169555388093444,
+      "precision_at_best_threshold": 0.5301391035548686
+    }
+  }
+}
