@@ -1,0 +1,38 @@
+% Minimal Overleaf wrapper for Part 2.
+% Upload this file together with part2_deliberation.tex, references.bib,
+% and the part2_figures/ folder.
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{setspace}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{xcolor}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  citecolor=blue!50!black,
+  urlcolor=blue!40!black
+}
+
+\title{Case Studies Assignment\\[0.4em]
+\large Part 2: Deliberation on Task 1}
+\author{Aakash K}
+\date{}
+
+\begin{document}
+\maketitle
+\onehalfspacing
+
+% If your full report already has Part 1, comment out maketitle above and
+% \input only the deliberation section into that document.
+\input{part2_deliberation}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

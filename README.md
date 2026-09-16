@@ -15,10 +15,15 @@ Models are run **separately** on each dataset (different targets), then compared
 
 | Path | Purpose |
 |------|---------|
-| `part1_3_ml_analysis.py` | Main analysis script: load data, preprocess, train XGBoost + MLP, evaluate, save metrics |
+| `part1_3_ml_analysis.py` | Part 1.3: load data, train XGBoost + MLP, evaluate, save metrics |
 | `part1_3_results.json` | Saved holdout metrics and XGBoost feature importances |
-| `_figures_part1_3/` | Charts used in the written report |
-| `Part1_3_Data_Analysis.docx` | Written analysis (insights, metrics justification, figures) |
+| `_figures_part1_3/` | Charts used in the Part 1 written report |
+| `Part1_3_Data_Analysis.docx` | Part 1.3 written analysis |
+| `part2_fairness_learning_curves.py` | Part 2: stratified learning curves + Fairlearn audits |
+| `part2_figures/` | Learning-curve and fairness figures/CSVs |
+| `part2_deliberation.tex` | Part 2 Overleaf section (CV, learning curves, Fairlearn, risks) |
+| `main_part2.tex` | Minimal Overleaf wrapper for Part 2 |
+| `references.bib` | BibTeX for Part 2 |
 
 ## How the code works (high level)
 
