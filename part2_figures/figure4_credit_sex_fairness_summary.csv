@@ -1,2 +1,2 @@
-dataset,demographic_parity_difference,equalized_odds_difference
-Credit Card Default,0.05709226931975808,0.056961719404524075
+dataset,demographic_parity_difference,equalized_odds_difference,bank_duration_excluded
+Credit Card Default,0.05709226931975808,0.056961719404524075,

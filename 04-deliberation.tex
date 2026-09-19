@@ -1,250 +1,511 @@
 %==========================================================
-% Part 2: Deliberation on Task 1
-% Overleaf-ready section. Place the PNGs from img/
-% in the same project (or update the figure paths below).
+% PART 2 — paste from here (replaces your current Part 2)
+% Figures expected in project root or path used below:
+%   image.png / image2.png / image3.png / image4.png
 %==========================================================
 
-\section{Part 2: Deliberation on Task 1}
+\section{Deliberation on Task 1}
 \label{sec:part2-deliberation}
 
-This section reflects on the ethics and potential bias of the Part~1 analysis.
-In Part~1, XGBoost and a multilayer perceptron (MLP) were trained separately on
-two banking datasets: Portuguese bank marketing (term-deposit subscription) and
-UCI credit-card default prediction. The deliberation below examines whether the
-methodology supported an unbiased evaluation, how performance changes with
-training-set size, whether subgroup bias is observable under Microsoft Fairlearn,
-and what security, privacy, and ethical risks would arise if the approach were
-deployed at scale.
+This section reflects on the ethics and potential bias of the Individual Task~1
+analysis. In Task~1, XGBoost and a multilayer perceptron (MLP) were trained separately
+on two banking datasets: Portuguese Bank Marketing for term-deposit subscription and
+Credit Card Default for prediction of default payment next month. The deliberation
+below examines whether the methodology supported an unbiased evaluation, how model
+performance changes with training-set size, whether subgroup disparities are
+observable using Microsoft Fairlearn, and what security, privacy, and ethical risks
+could arise if the methodology were deployed at scale or transferred to another
+application.
+
+\paragraph{Scope note on Bank Marketing features.}
+Unless otherwise stated, all Bank Marketing analyses in this Part~2 deliberation
+\emph{exclude} the call-\texttt{duration} feature. Duration is only observed after the
+marketing call and therefore constitutes post-call information leakage if used for
+pre-call targeting. Task~1 reported a with-duration result as an exploratory upper
+bound; Part~2 uses the leakage-free feature set so that learning curves, fairness
+audits, and deployment discussion refer to information that would actually be
+available when deciding whom to contact.
 
 %----------------------------------------------------------
 \subsection{Cross-Validation and Sampling Strategy}
 \label{sec:part2-cv}
 %----------------------------------------------------------
 
-An unbiased evaluation requires that the reported metrics reflect generalisation
-to unseen clients rather than accidental memorisation of a favourable split.
-Both datasets are strongly class-imbalanced (approximately 11.7\% positive
-subscriptions and 22.1\% defaults). Under such imbalance, a single random split
-that does not preserve class proportions can distort both accuracy-oriented and
-ranking metrics. Accordingly, Part~1 used a stratified 80/20 train--test holdout
-so that the positive-class rate in the test set matched the overall population
-rate. Stratification was preferred to simple random sampling because the minority
-class is precisely the class of operational interest: subscribers in marketing
-and defaulters in credit risk.
+An unbiased evaluation requires that reported metrics reflect generalisation to
+unseen clients rather than accidental performance on a favourable partition. Both
+datasets are class-imbalanced, with approximately 11.7\% positive subscriptions in
+Bank Marketing and 22.1\% defaults in Credit Card Default. Under such imbalance, a
+simple random split can produce unstable minority-class representation and distort
+both ranking and classification metrics. Accordingly, Task~1 used a stratified 80/20
+train--test holdout so that the positive-class proportions were approximately
+preserved across the training and test partitions. Stratification was appropriate
+because the minority class was also the operational class of interest: subscribers
+for marketing and defaulters for credit-risk analysis.
 
-For Part~2, evaluation was strengthened with five-fold stratified cross-validation
-inside learning-curve estimation. Stratified $k$-fold keeps class proportions
-stable across folds and reduces the chance that a single unlucky partition
-dominates the conclusion. The scoring metric remained average precision (PR-AUC),
-consistent with Part~1's case-aligned evaluation: in banking applications with
-costly false negatives, ranking quality on the rare positive class is more
-informative than overall accuracy. Class imbalance was also addressed during
-training through XGBoost's \texttt{scale\_pos\_weight}, which rebalances the
-learning objective without fabricating synthetic minority samples. Synthetic
-oversampling (e.g.\ SMOTE) was not used as the primary strategy because it can
-alter the empirical distribution of banking features in ways that are difficult
-to justify operationally; reweighting preserves the original feature space while
-still correcting gradient dominance by the majority class.
+A limitation of Task~1 is that the original evaluation relied on a single stratified
+holdout rather than repeated or $k$-fold cross-validation. Although stratification
+reduced variation in minority-class representation, performance could still depend on
+the particular random partition. Five-fold stratified cross-validation in Part~2
+therefore provides a more robust estimate of generalisation by evaluating the models
+across multiple partitions.
 
-Taken together, stratification, holdout testing, and stratified cross-validation
-do not eliminate bias in the \emph{data-generating process}, but they do reduce
-evaluation bias caused by unstable sampling. That distinction matters: a fair
-evaluation protocol can still reveal unfair models if the underlying historical
-labels encode unequal outcomes across groups.
+Preprocessing was appropriately contained within scikit-learn pipelines, reducing the
+risk that transformations learned from evaluation data contaminated model training.
+Categorical variables were one-hot encoded, while numeric variables were standardised
+for the MLP. However, imbalance was not handled identically across the two algorithms.
+XGBoost used \texttt{scale\_pos\_weight}, whereas the MLP did not receive an
+equivalent class-weighting mechanism. Consequently, differences in minority-class
+recall may reflect both the underlying model architectures and differences in how
+class imbalance was handled.
+
+For Part~2, five-fold stratified cross-validation was also used during learning-curve
+estimation. Stratified $k$-fold preserves class proportions across folds and reduces
+the probability that a single favourable or unfavourable partition dominates the
+conclusion. Average precision (PR-AUC) remained the principal evaluation metric,
+consistent with Task~1. For these imbalanced banking tasks, performance on the rare
+positive class is more informative than overall accuracy because high accuracy can be
+achieved while still failing to identify many subscribers or defaulters.
+
+Synthetic oversampling such as SMOTE was not used as the primary imbalance strategy.
+This choice avoids creating synthetic combinations of financial and demographic
+attributes that may not correspond to realistic customers. Instead, stratification
+preserved the original outcome distribution and XGBoost used class reweighting to
+reduce majority-class dominance during optimisation.
+
+A further methodological limitation concerns the exploratory threshold search in
+Task~1. Candidate classification thresholds were evaluated using the held-out test
+labels to identify the threshold maximising positive-class F1. Although the principal
+reported Task~1 results used the default threshold of 0.5, selecting an operational
+threshold using test-set labels can introduce optimistic bias. A stronger procedure
+would determine thresholds entirely within the training data, for example through
+cross-validation, and reserve the final test set for a single unbiased evaluation.
+
+Taken together, stratification, holdout testing, and stratified cross-validation reduce
+evaluation bias caused by unstable sampling, but they do not remove bias from the
+underlying data-generating process. A statistically reliable evaluation protocol can
+still reveal inequitable behaviour if historical labels, sampling processes, or
+features encode different outcomes across demographic groups.
+
 
 %----------------------------------------------------------
 \subsection{Learning Curves under Varying Training-Set Sizes}
 \label{sec:part2-learning-curves}
 %----------------------------------------------------------
 
-To analyse how model performance depends on the amount of labelled data,
-learning curves were generated for both models on both datasets. Training sizes
-were set to 10\%, 25\%, 50\%, 75\%, and 100\% of the available training pool,
-with five-fold stratified cross-validation and PR-AUC as the evaluation metric.
-Figures~\ref{fig:part2-bank-lc} and~\ref{fig:part2-credit-lc} summarise the
-validation curves.
+To analyse how model performance depends on the amount of labelled data, learning
+curves were generated for XGBoost and MLP on both datasets. Training sizes were set to
+10\%, 25\%, 50\%, 75\%, and 100\% of the available training pool, with five-fold
+stratified cross-validation and PR-AUC as the principal metric.
+Figures~\ref{fig:part2-bank-lc} and~\ref{fig:part2-credit-lc} show \emph{both}
+training and validation PR-AUC so that train--validation gaps can be inspected
+directly rather than asserted without evidence.
 
 \begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.92\linewidth]{img/figure1_bank_learning_curve.png}
-  \caption{Learning curve for Bank Marketing: validation PR-AUC versus number of
-  training samples for XGBoost and MLP (five-fold stratified CV).}
-  \label{fig:part2-bank-lc}
+    \centering
+    \includegraphics[width=0.88\linewidth]{image.png}
+    \caption{Learning curve for Bank Marketing (\texttt{duration} excluded):
+    training and validation PR-AUC versus number of training samples for XGBoost and
+    MLP using five-fold stratified cross-validation. Shaded regions show $\pm$1
+    standard deviation across folds.}
+    \label{fig:part2-bank-lc}
 \end{figure}
 
 \begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.92\linewidth]{img/figure2_credit_learning_curve.png}
-  \caption{Learning curve for Credit Card Default: validation PR-AUC versus
-  number of training samples for XGBoost and MLP (five-fold stratified CV).}
-  \label{fig:part2-credit-lc}
+    \centering
+    \includegraphics[width=0.88\linewidth]{image2.png}
+    \caption{Learning curve for Credit Card Default: training and validation PR-AUC
+    versus number of training samples for XGBoost and MLP using five-fold stratified
+    cross-validation. Shaded regions show $\pm$1 standard deviation across folds.}
+    \label{fig:part2-credit-lc}
 \end{figure}
 
-On Bank Marketing, both models improve as more training data become available,
-but the trajectories differ. XGBoost already achieves a comparatively strong
-validation PR-AUC with only a few thousand samples (approximately 0.57 at 3{,}616
-examples) and continues to rise toward approximately 0.64 at the full training
-size. The corresponding training PR-AUC falls as the sample grows, which is
-expected: with little data the boosted trees overfit, and additional examples
-regularise the fit while improving out-of-sample ranking. The MLP starts lower
-and more unstable at small samples, then steadily approaches XGBoost without
-fully closing the gap. This pattern indicates that marketing subscription
-prediction benefits from additional labelled campaigns, but also that tree
-ensembles extract useful structure earlier than the neural network under the
-chosen architecture and training budget.
+On Bank Marketing without \texttt{duration}, both models improve as more training data
+become available, but absolute validation PR-AUC is substantially lower than the
+Task~1 with-duration upper bound. XGBoost validation PR-AUC rises from approximately
+0.39 at 3{,}616 samples to approximately 0.46 at full size, while training PR-AUC
+falls from approximately 0.90 to 0.57. The train--validation gap therefore narrows from
+about 0.51 to 0.11. This pattern is visible in Figure~\ref{fig:part2-bank-lc} and is
+consistent with overfitting at small sample sizes followed by improved generalisation
+as more labelled campaigns are added.
 
-On Credit Card Default, absolute PR-AUC values remain lower than in the marketing
-task, confirming Part~1's finding that default prediction is the harder problem.
-XGBoost again improves monotonically with sample size (roughly 0.51 to 0.56),
-while the MLP improves from a lower base and remains slightly behind at full
-data. The persistent train--validation gap for XGBoost at small $n$, and its
-gradual narrowing, suggest that further labelled defaults would still help, but
-with diminishing returns: neither curve shows a sharp late jump that would imply
-the models are data-starved at 24{,}000 examples. Practically, this supports
-deploying the Part~1 models with the available data while recognising that credit
-risk performance is bounded more by task difficulty and label noise than by
-model choice alone.
+The MLP begins with lower and more variable performance at small $n$ and reaches a
+validation PR-AUC of approximately 0.43 at full size. Its train--validation gap remains
+comparatively small (around 0.04--0.06), suggesting less memorisation than XGBoost at
+small samples, but also a weaker fit overall. Under the leakage-free feature set,
+XGBoost remains ahead of the MLP on validation PR-AUC across all examined data budgets.
 
-Overall, the learning curves justify the Part~1 conclusion that XGBoost is the
-stronger of the two methods under PR-AUC, and they show that this ranking is
-stable across training-set sizes rather than an artefact of one data budget.
+On Credit Card Default, absolute PR-AUC values remain moderate. XGBoost validation
+PR-AUC improves from roughly 0.51 to 0.56 as training size increases, while training
+PR-AUC falls from about 0.98 to 0.68 and the gap narrows from about 0.47 to 0.13
+(Figure~\ref{fig:part2-credit-lc}). The MLP improves from a lower base toward
+approximately 0.54 and maintains a small train--validation gap. The diminishing
+late-stage gains suggest that further identical labelled observations would help only
+marginally without richer features or temporal validation.
+
+Overall, the curves support two conclusions. First, XGBoost's advantage over the MLP
+under PR-AUC is stable across training-set sizes for both tasks. Second, excluding
+\texttt{duration} materially reduces Bank Marketing performance relative to Task~1,
+which is expected and methodologically preferable for any discussion of pre-call
+deployment.
+
 
 %----------------------------------------------------------
 \subsection{Bias Analysis with Microsoft Fairlearn}
 \label{sec:part2-fairness}
 %----------------------------------------------------------
 
-Observed bias was audited with Microsoft Fairlearn
-\cite{bird2020fairlearn}.\footnote{Fairlearn documentation:
-\url{https://fairlearn.org/}.}
-Fairlearn was chosen because it integrates directly with scikit-learn-style
-estimators, supports group-wise MetricFrame reporting, and provides standard
-disparity measures (demographic parity difference and equalized odds difference)
-that are widely used in responsible-ML reporting. Compared with dashboard-centric
-tools such as Google What-If, Fairlearn is better suited to a scripted,
-reproducible academic workflow that mirrors the Part~1 training pipeline.
-IBM AIF360 would also have been viable; Fairlearn was preferred here for API
-simplicity and for keeping the audit on the same XGBoost configuration used in
-Part~1.
+Observed subgroup disparities were audited using Microsoft Fairlearn
+\cite{bird2020fairlearn}. Fairlearn was chosen because it integrates directly with
+scikit-learn-style estimators, supports group-wise \texttt{MetricFrame} reporting, and
+provides standard disparity measures including demographic parity difference and
+equalized odds difference. Compared with dashboard-centric alternatives such as
+Google What-If, Fairlearn is well suited to a scripted and reproducible workflow that
+is consistent with the Task~1 training pipeline.
 
-Two sensitive attributes were examined because they are salient in each domain:
-age group for Bank Marketing (\texttt{<30}, \texttt{30--59}, \texttt{60+}) and
-sex for Credit Card Default (male/female as coded in the UCI dataset). Age was
-binned rather than used as a continuous variable so that disparity metrics could
-be interpreted over policy-relevant cohorts. The audited model was the Part~1
-XGBoost pipeline, trained on a stratified holdout and evaluated at a 0.5
-decision threshold.
+The fairness audit focuses on XGBoost because Task~1 identified it as the stronger
+model on minority-sensitive PR-AUC, recall, and F1 metrics across both datasets,
+making it the more plausible candidate for downstream use. Two sensitive attributes
+were examined: age group for Bank Marketing (\texttt{<30}, \texttt{30--59},
+\texttt{60+}) and sex for Credit Card Default (male/female as coded in the dataset).
+Age was grouped rather than treated as a continuous variable so that disparities could
+be interpreted across meaningful cohorts. The audited Bank Marketing model again
+excludes \texttt{duration}. Evaluation used a stratified holdout and a 0.5
+classification threshold.
+
+These fairness measures identify differences between groups rather than proving that
+the model is discriminatory. Observed disparities can arise from differences already
+present in historical outcome rates, from differences introduced or amplified by the
+model, or from interactions between the two. Reporting subgroup sample sizes and
+observed positive outcome rates is therefore essential: without them, selection-rate
+gaps can be misread as pure model bias when they partly reflect base-rate differences
+or unstable estimates in small cohorts.
 
 \begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.92\linewidth]{img/figure3_bank_age_fairness.png}
-  \caption{Fairlearn group metrics for Bank Marketing by age group: selection
-  rate, true positive rate, and false positive rate.}
-  \label{fig:part2-bank-fair}
+    \centering
+    \includegraphics[width=0.88\linewidth]{image3.png}
+    \caption{Fairlearn group metrics for Bank Marketing by age group
+    (\texttt{duration} excluded): selection rate, true positive rate, and false
+    positive rate. Annotations show subgroup sample size $n$ and observed positive
+    outcome rate (base rate) in the test set.}
+    \label{fig:part2-bank-fair}
 \end{figure}
 
 \begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.92\linewidth]{img/figure4_credit_sex_fairness.png}
-  \caption{Fairlearn group metrics for Credit Card Default by sex: selection
-  rate, true positive rate, and false positive rate.}
-  \label{fig:part2-credit-fair}
+    \centering
+    \includegraphics[width=0.88\linewidth]{image4.png}
+    \caption{Fairlearn group metrics for Credit Card Default by sex: selection rate,
+    true positive rate, and false positive rate. Annotations show subgroup sample
+    size $n$ and observed positive outcome rate (base rate) in the test set.}
+    \label{fig:part2-credit-fair}
 \end{figure}
 
-On Bank Marketing, disparities are large. The demographic parity difference is
-approximately 0.42 and the equalized odds difference approximately 0.35.
-Selection rates vary sharply by age: about 0.20 for ages 30--59, 0.34 for clients
-under 30, and 0.62 for clients aged 60+. True positive rates are high across
-groups (roughly 0.86--0.91), but the false positive rate for the 60+ group is
-substantially elevated (approximately 0.48), which lowers group accuracy. In
-marketing terms, older clients are predicted as subscribers far more often.
-This may partly reflect genuine differences in historical conversion, but it
-also means a deployed campaign optimiser could systematically over-contact older
-customers and under-contact middle-aged customers. Because marketing contact is
-itself an intervention, such disparities raise fairness concerns even when the
-model maximises aggregate PR-AUC.
+\begin{table}[htbp]
+\centering
+\caption{Bank Marketing Fairlearn summary by age group (XGBoost; \texttt{duration}
+excluded; stratified holdout; threshold 0.5).}
+\label{tab:part2-bank-fair}
+\small
+\begin{tabular}{lrrrrrr}
+\toprule
+Age group & $n$ & Base rate & Selection & TPR & FPR & Accuracy \\
+\midrule
+$<30$   & 1003 & 0.178 & 0.412 & 0.754 & 0.337 & 0.679 \\
+30--59  & 7703 & 0.100 & 0.164 & 0.568 & 0.120 & 0.849 \\
+$60+$   & 337  & 0.332 & 0.736 & 0.920 & 0.644 & 0.543 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-On Credit Card Default, sex disparities are smaller but not negligible.
-Demographic parity and equalized odds differences are both near 0.057.
-Males have a higher selection rate (approximately 0.32 versus 0.26 for females)
-and a higher false positive rate (approximately 0.22 versus 0.17), while true
-positive rates are similar (approximately 0.62 versus 0.60). In a lending or
-collections context, even modest false-positive gaps can translate into unequal
-scrutiny or adverse action. The smaller magnitude relative to the bank-age audit
-does not imply fairness by default; it indicates that sex is a weaker axis of
-disparity than age in the marketing model under the chosen threshold.
+\begin{table}[htbp]
+\centering
+\caption{Credit Card Default Fairlearn summary by sex (XGBoost; stratified holdout;
+threshold 0.5).}
+\label{tab:part2-credit-fair}
+\small
+\begin{tabular}{lrrrrrr}
+\toprule
+Sex & $n$ & Base rate & Selection & TPR & FPR & Accuracy \\
+\midrule
+Female & 3598 & 0.213 & 0.259 & 0.599 & 0.167 & 0.783 \\
+Male   & 2402 & 0.234 & 0.316 & 0.619 & 0.224 & 0.739 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-An important caveat is that fairness metrics depend on the decision threshold
-and on whether the sensitive attribute is used as an input feature. Part~1
-models included age (bank) and sex (credit) among predictors, which can amplify
-disparate impact even when the feature is statistically predictive. A fuller
-mitigation study could compare constrained optimisation or post-processing
-reductions in Fairlearn; the present analysis is diagnostic rather than
-remedial, which is appropriate for deliberation on the Part~1 methodology.
+For Bank Marketing, the audit identifies substantial age-related disparity even after
+removing \texttt{duration}. The demographic parity difference is approximately 0.57
+and the equalized odds difference approximately 0.52. Table~\ref{tab:part2-bank-fair}
+shows that the $60+$ group is small ($n=337$) but has both a higher historical
+subscription base rate (0.33) and a much higher model selection rate (0.74), together
+with a markedly elevated false positive rate (0.64). The modal age group 30--59
+($n=7703$) has the lowest base rate (0.10) and the lowest selection rate (0.16).
+Clients under 30 ($n=1003$) fall between these extremes.
+
+This pattern cannot be reduced to base-rate differences alone: selection for the $60+$
+group (0.74) far exceeds its already higher base rate (0.33), and the false positive
+rate indicates that many non-subscribers in that group would still be contacted. In
+practice, a campaign optimiser could therefore over-contact older customers while
+contacting middle-aged customers less frequently. Because marketing contact is itself
+an intervention, and because the $60+$ estimate rests on a comparatively small $n$,
+both fairness and statistical uncertainty are ethically relevant even when aggregate
+PR-AUC looks acceptable.
+
+For Credit Card Default, sex-related disparities are smaller but still observable
+(Table~\ref{tab:part2-credit-fair}). Demographic parity and equalized odds differences
+are both approximately 0.057. Male customers ($n=2402$) have a slightly higher base
+rate (0.234 vs 0.213) and a higher selection rate (0.316 vs 0.259), with a higher
+false positive rate (0.224 vs 0.167) and similar true positive rates. Group sizes are
+large enough that the gaps are unlikely to be sampling noise alone. In a credit-risk
+context, even moderate false-positive gaps can translate into unequal scrutiny.
+
+An important caveat is that fairness results are threshold-dependent and can also be
+affected by whether a sensitive feature is directly included in the predictive model.
+Task~1 included age in the Bank Marketing model and sex in the Credit Default model.
+A more comprehensive study could therefore compare performance after removing these
+attributes, examine possible proxy variables, or apply Fairlearn mitigation techniques
+such as constrained optimisation or post-processing. The present analysis is
+diagnostic rather than remedial, which is appropriate for reflecting on the original
+Task~1 methodology.
+
 
 %----------------------------------------------------------
 \subsection{Security, Privacy, and Ethical Risks at Scale}
 \label{sec:part2-risks}
 %----------------------------------------------------------
 
-If the Part~1 methodology were deployed widely---for example as a bank-wide
-campaign scorer or a credit early-warning system---several risks follow.
+If the Task~1 methodology were deployed widely, for example as a bank-wide marketing
+scorer or a credit early-warning system, several additional risks would arise.
 
 \paragraph{(i) Security.}
-Model outputs and feature pipelines become attractive targets. An adversary who
-can query a subscription or default score repeatedly may attempt membership
-inference or model extraction, especially if probability scores are exposed
-through an API. Feature-space attacks are also plausible: applicants or
-intermediaries could manipulate reported income proxies, contact channels, or
-repayment timing patterns to shift predicted risk. At large scale, pipeline
-compromise (training-data poisoning or silent substitution of a challenger
-model) could systematically mis-rank thousands of customers. Security controls
-should therefore include access-controlled scoring endpoints, monitoring for
-distributional drift and query abuse, signed model artefacts, and human review
-for high-impact decisions.
+Model outputs, training data, and feature-processing pipelines would become valuable
+attack targets. An adversary with repeated access to a prediction API could attempt
+model extraction or membership-inference attacks, particularly if detailed probability
+scores were exposed. Customers or intermediaries could also manipulate modifiable
+inputs such as contact-channel information, repayment timing, payment amounts, or
+other behavioural variables in an attempt to influence model outputs. At larger scale,
+training-data poisoning or unauthorised model replacement could systematically affect
+predictions for many customers. Appropriate controls would include access-controlled
+scoring endpoints, encryption, audit logging, model and data versioning, signed model
+artefacts, monitoring for unusual query behaviour, and human review for high-impact
+decisions.
 
 \paragraph{(ii) Privacy.}
-Both datasets contain attributes that are directly or indirectly identifying in
-real deployments: age, job, marital status, education, sex, account behaviour,
-and repayment history. Large-scale use implies retention of detailed behavioural
-logs for retraining. That creates risks of function creep (marketing scores
-reused for credit decisions), re-identification through quasi-identifiers, and
-unauthorised secondary use. Privacy-preserving practice would require purpose
-limitation, minimisation of sensitive fields where they are not necessary for
-the decision, retention limits, encryption at rest, and---where regulation
-demands it---rights to explanation and contestation. Training on historical
-defaults also encodes past institutional decisions; without governance, those
-histories are perpetuated under the appearance of objective automation.
+The datasets contain sensitive or potentially quasi-identifying attributes including
+age, job, marital status, education, sex, account behaviour, credit limits, bill
+amounts, payment amounts, and repayment history. Large-scale deployment would likely
+involve retaining behavioural data for repeated scoring and model retraining, creating
+risks of re-identification, unauthorised secondary use, and function creep. For
+example, a score originally developed for marketing could later be reused for credit
+assessment without customers expecting that use. Privacy-preserving deployment would
+therefore require data minimisation, clearly defined purpose limitation, restricted
+retention periods, access controls, encryption at rest and in transit, and governance
+over reuse of sensitive information.
 
-\paragraph{(iii) Ethical risks.}
-The Fairlearn results show that optimising Part~1's operational metrics does
-not guarantee equitable treatment. A marketing model that over-selects older
-clients can become manipulative if combined with aggressive sales practices; a
-credit model with higher false positive rates for one sex can deepen unequal
-access to financial opportunity. Deploying the same methodology in a different
-application---for example, using repayment-style features for employment
-screening or insurance pricing---would intensify ethical concern because the
-original labels were collected for banking decisions, not for those new
-purposes. Ethical deployment therefore requires explicit purpose constraints,
-subgroup monitoring in production, threshold policies that reflect harm
-asymmetry, and escalation to human decision-makers for adverse actions.
-Transparency about uncertainty is also ethical practice: Part~1 already showed
-that call duration inflates marketing performance through leakage; deploying
-leaky features would create misleading confidence in targeting quality.
+Historical financial data can also encode previous institutional practices and social
+inequalities. Removing direct identifiers does not necessarily prevent sensitive
+information from being inferred from combinations of demographic and behavioural
+variables. Privacy and fairness therefore need to be considered together rather than
+as independent technical requirements.
+
+\paragraph{(iii) Ethical Risks.}
+The Fairlearn analysis demonstrates that strong aggregate predictive performance does
+not guarantee equitable treatment across groups. A marketing model that substantially
+over-selects older customers could contribute to excessive or potentially
+manipulative targeting if combined with aggressive sales practices. In credit-risk
+settings, false positive predictions may expose individuals to unnecessary scrutiny
+or influence downstream decisions concerning financial access.
+
+Transferring the same methodology into a different application could create even
+greater ethical risks. For example, using repayment-derived variables for employment
+screening or insurance pricing would apply data collected for one purpose to decisions
+with fundamentally different consequences. Such transfer would require new validation,
+new fairness analysis, and a clear justification of whether the variables are
+appropriate for the new context.
+
+Ethical deployment would therefore require explicit purpose constraints, continuous
+subgroup monitoring, transparent threshold policies, human oversight for adverse
+decisions, meaningful explanations, and mechanisms for affected individuals to contest
+or correct decisions. Transparency about uncertainty is also important. Task~1 showed
+that call duration substantially increased Bank Marketing performance even though it
+is only known after the marketing call; Part~2 therefore excludes duration so that
+deployment discussion is not based on an inflated, non-operational feature set.
+
 
 %----------------------------------------------------------
-\subsection{Summary of the Deliberation}
+\subsection{Summary and Reflection}
 \label{sec:part2-summary}
 %----------------------------------------------------------
 
-Part~2 supports three conclusions about the Part~1 analysis. First, stratified
-holdout evaluation and stratified cross-validation provide a methodologically
-sound basis for comparing XGBoost and MLP under imbalance, but they do not by
-themselves make the models fair. Second, learning curves show that both models
-benefit from more data, that XGBoost remains superior across training sizes, and
-that credit default prediction is intrinsically harder than subscription
-prediction. Third, Fairlearn reveals material age-related disparity in bank
-marketing predictions and smaller but visible sex-related disparity in credit
-default predictions. Any large-scale or cross-application deployment would
-therefore need security hardening, privacy governance, and continuous fairness
-monitoring in addition to the PR-AUC-oriented model selection used in Part~1.
+The Part~2 deliberation changes how the original Task~1 results should be interpreted.
+The stratified 80/20 holdout was a reasonable first evaluation strategy for the
+imbalanced datasets, and the use of PR-AUC, positive-class recall, and F1 was more
+appropriate than relying on accuracy alone. However, the analysis also had important
+limitations: performance was initially assessed using only one train--test partition,
+the two models did not receive identical treatment for class imbalance, and exploratory
+threshold optimisation used information from the held-out test labels.
+
+Five-fold stratified cross-validation and the learning-curve analysis---now showing
+both training and validation curves---provide stronger evidence that XGBoost's
+advantage over the MLP is relatively stable across partitions and training-set sizes.
+Excluding \texttt{duration} lowers Bank Marketing PR-AUC relative to Task~1 but yields
+a more honest estimate for pre-call use. Fairlearn further shows that aggregate
+performance does not imply equitable subgroup behaviour: age disparities in Bank
+Marketing remain large after removing duration, while Credit Default shows smaller but
+visible sex-related differences, now reported with subgroup $n$ and base rates.
+
+If the analysis were repeated, threshold selection would be performed entirely inside
+the training or validation process, subgroup fairness metrics would be included as
+standard evaluation criteria alongside predictive performance, and deployment-relevant
+features would continue to be separated from variables unavailable at decision time.
+External or temporal validation would also be required before transferring the models
+to a different institution, population, or application.
+
+Overall, the reflection shows that model quality cannot be assessed solely through
+PR-AUC or other aggregate predictive metrics. Responsible evaluation must also consider
+sampling stability, information leakage, subgroup error distributions, privacy,
+security, deployment context, and the potential consequences of model-assisted
+decisions.
+
+
+\newpage
+%==========================================================
+% AI DECLARATION + PROCESS APPENDIX
+%==========================================================
+
+\section{AI Use Declaration (Condition 3: Bounded Process)}
+\label{sec:ai-declaration}
+
+This assessment was completed under a \textbf{Condition 3 (Bounded Process)} AI-use
+setting. Generative AI tools were used as bounded assistants for coding support,
+drafting, debugging, figure regeneration, and editorial restructuring. All analytical
+decisions, interpretation of results, and final submitted wording were reviewed and
+accepted by the author. AI output was not submitted without human verification against
+executed code and saved numerical artefacts.
+
+\subsection{Tools Used}
+\begin{itemize}
+    \item Cursor IDE agent (Grok-based coding assistant) for Python analysis scripts,
+    learning-curve/Fairlearn figure regeneration, LaTeX drafting support, and revision
+    against marker-style feedback.
+    \item Standard libraries/toolkits: \texttt{scikit-learn}, \texttt{XGBoost},
+    \texttt{fairlearn}, \texttt{pandas}, \texttt{matplotlib}, Overleaf for typesetting.
+\end{itemize}
+
+\subsection{What AI Was Allowed to Assist With}
+\begin{itemize}
+    \item Writing and revising analysis code for Task~1 models and Part~2 audits.
+    \item Generating and regenerating figures/tables from executed results.
+    \item Drafting and tightening LaTeX prose for deliberation, declaration, and
+    appendix sections.
+    \item Checking consistency between claims and numerical outputs (e.g.\ train/validation
+    gaps, duration exclusion, Fairlearn $n$/base rates).
+\end{itemize}
+
+\subsection{What Remained Human-Owned}
+\begin{itemize}
+    \item Choice of case framing, metrics (PR-AUC/Recall+/F1+), and models (XGBoost, MLP).
+    \item Decision to exclude \texttt{duration} in Part~2 after reviewing leakage risk.
+    \item Interpretation of fairness gaps and deployment risks.
+    \item Final editing, verification of numbers against CSV/figure outputs, and
+    submission decisions.
+\end{itemize}
+
+\subsection{Attribution Statement}
+Portions of the code and text in this submission were produced with AI assistance as
+described above. The author takes full responsibility for the correctness of the
+analysis, the validity of claims relative to the generated artefacts, and compliance
+with the unit's AI-use conditions.
+
+
+\newpage
+\section{Appendix: Development Process}
+\label{sec:appendix-process}
+
+This appendix documents the development process used for Task~1 analysis and the
+Part~2 deliberation, including scripts, checks, corrections, and issues encountered.
+
+\subsection{Repository and Artefacts}
+The reproducible artefacts are maintained in the GitHub repository
+\texttt{aakashk1973/casestudiesassignment}, including:
+\begin{itemize}
+    \item \texttt{part1\_3\_ml\_analysis.py} --- Task~1 XGBoost/MLP training and evaluation.
+    \item \texttt{part1\_3\_results.json} --- holdout metrics and feature importances.
+    \item \texttt{part2\_fairness\_learning\_curves.py} --- Part~2 learning curves and
+    Fairlearn audits.
+    \item \texttt{part2\_figures/} and \texttt{img/} --- figures and CSV numeric exports.
+\end{itemize}
+
+\subsection{Analysis Pipeline (High Level)}
+\begin{enumerate}
+    \item Load Bank Marketing (\texttt{casestudiesDS1.csv}, semicolon-separated) and
+    Credit Default (\texttt{casestudiesDS2.csv}, header row 2).
+    \item Task~1: stratified 80/20 split; train XGBoost (with
+    \texttt{scale\_pos\_weight}) and MLP; evaluate with PR-AUC, Recall+, F1+, ROC-AUC.
+    \item Task~1 exploratory ablation: re-run Bank Marketing with/without
+    \texttt{duration} to quantify leakage.
+    \item Part~2: regenerate learning curves with 5-fold stratified CV at 10--100\%
+    training sizes; plot training \emph{and} validation PR-AUC.
+    \item Part~2: Fairlearn MetricFrame audits for age (bank) and sex (credit), exporting
+    subgroup $n$, base rates, selection/TPR/FPR, and disparity summaries.
+\end{enumerate}
+
+\subsection{Key Prompts / Assistance Requests (Summary)}
+AI assistance was requested for:
+\begin{itemize}
+    \item Implementing Task~1 XGBoost + MLP evaluation and writing the Part~1.3 analysis.
+    \item Implementing Part~2 Fairlearn + learning-curve scripts and drafting deliberation
+    prose.
+    \item Applying revision feedback: add training curves; state duration policy; add
+    subgroup $n$/base rates; prepare AI declaration and process appendix.
+\end{itemize}
+Prompts were iterative rather than single-shot; each major claim was re-checked against
+saved CSV outputs after code changes.
+
+\subsection{Checks Performed}
+\begin{itemize}
+    \item Confirmed class imbalance rates ($\approx$11.7\% / 22.1\%).
+    \item Confirmed Bank Part~2 feature list excludes \texttt{duration}.
+    \item Confirmed learning-curve plots include both training and validation series.
+    \item Confirmed Fairlearn tables include $n$ and positive outcome rates before
+    interpreting selection-rate gaps.
+    \item Cross-checked narrative numbers against
+    \texttt{figure1\_bank\_learning\_curve.csv},
+    \texttt{figure2\_credit\_learning\_curve.csv},
+    \texttt{figure3\_bank\_age\_fairness\_metrics.csv}, and
+    \texttt{figure4\_credit\_sex\_fairness\_metrics.csv}.
+\end{itemize}
+
+\subsection{Issues Encountered and Corrections}
+\begin{itemize}
+    \item \textbf{Duration leakage:} initial Part~2 bank runs included \texttt{duration},
+    inflating PR-AUC and weakening deployment claims. Corrected by excluding duration and
+    regenerating figures/text.
+    \item \textbf{Train--validation claims without plotted training curves:} early figures
+    showed validation only while text discussed gaps. Corrected by plotting both curves.
+    \item \textbf{Fairlearn without cohort context:} early discussion omitted subgroup $n$
+    and base rates; corrected by exporting annotated figures and summary tables.
+    \item \textbf{XGBoost/OpenMP on macOS:} local XGBoost import initially failed without
+    \texttt{libomp}; resolved via Homebrew install before re-running experiments.
+    \item \textbf{Overleaf missing inputs:} an earlier wrapper used
+    \texttt{\textbackslash input\{part2\_deliberation\}} without uploading that file;
+    resolved by providing self-contained section text and explicit figure filenames
+    (\texttt{image.png}--\texttt{image4.png}).
+    \item \textbf{Template hygiene:} submission checklist includes removing placeholder
+    text (e.g.\ ``[[Remove before submitting...]]''), replacing any default ``Smith''
+    running header with the student name, and ensuring the Overleaf project title matches
+    the overall assessment title rather than an outdated ``Individual Task 2: Part 1''
+    label.
+\end{itemize}
+
+\subsection{Representative Code Extract (Part~2 configuration)}
+\begin{verbatim}
+EXCLUDE_BANK_DURATION = True  # Part 2: no post-call leakage
+
+# learning_curve(..., scoring="average_precision")
+# plot training AND validation PR-AUC means +/- std
+
+# Fairlearn MetricFrame + demographic_parity_difference
+# + equalized_odds_difference
+# export group n and positive_outcome_rate with rates
+\end{verbatim}
+Full scripts are provided in the repository artefacts listed above.

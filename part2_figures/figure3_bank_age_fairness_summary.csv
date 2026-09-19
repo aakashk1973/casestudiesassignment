@@ -1,2 +1,2 @@
-dataset,demographic_parity_difference,equalized_odds_difference
-Bank Marketing,0.4209050310276431,0.34969050365244136
+dataset,demographic_parity_difference,equalized_odds_difference,bank_duration_excluded
+Bank Marketing,0.5716833127175778,0.524923106497501,True
